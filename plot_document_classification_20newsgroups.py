@@ -150,6 +150,7 @@ X_train, X_test, y_train, y_test, feature_names, target_names = load_dataset(
 # but it is often faster to train.
 
 from sklearn.linear_model import RidgeClassifier
+from sklearn.ensemble import RandomForestClassifier
 
 clf = RidgeClassifier(tol=1e-2, solver="sparse_cg")
 clf.fit(X_train, y_train)
@@ -174,11 +175,34 @@ _ = ax.set_title(
 fig.autofmt_xdate()
 fig.set_size_inches(12, 8)
 # make the bottom margin a bit bigger to fit the x-axis labels
-fig.subplots_adjust(bottom=0.30)
+fig.subplots_adjust(bottom=0.40)
 plt.tight_layout()
 plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
 # if file exists, it will be overwritten
-plt.savefig("confusion_matrix.png")
+plt.savefig("confusion_matrix_RidgeClassifier.png")
+
+# create a plot for RandomForestClassifier
+clf = RandomForestClassifier()
+clf.fit(X_train, y_train)
+pred = clf.predict(X_test)
+fig, ax = plt.subplots(figsize=(10, 5))
+ConfusionMatrixDisplay.from_predictions(y_test, pred, ax=ax)
+ax.xaxis.set_ticklabels(target_names)
+ax.yaxis.set_ticklabels(target_names)
+_ = ax.set_title(
+    f"Confusion Matrix for {clf.__class__.__name__}\non the original documents"
+)
+# save the figure in the current directory
+fig.autofmt_xdate()
+fig.set_size_inches(12, 8)
+# make the bottom margin a bit bigger to fit the x-axis labels
+# put more space on the bottom to fit the x-axis labels
+fig.subplots_adjust(bottom=0.40)
+plt.tight_layout()
+plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
+# if file exists, it will be overwritten
+plt.savefig("confusion_matrix_RandomForestClassifier.png")
+
 
 # %%
 # The confusion matrix highlights that documents of the `alt.atheism` class are
@@ -379,6 +403,7 @@ from sklearn.naive_bayes import ComplementNB
 # # from sklearn.neighbors import KNeighborsClassifier, NearestCentroid
 from sklearn.neighbors import NearestCentroid
 from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.metrics import precision_score, recall_score, f1_score
 # # from sklearn.svm import LinearSVC
 
 # results = []
@@ -480,6 +505,126 @@ from sklearn.feature_extraction.text import CountVectorizer
 # classification problems.
 
 # Define a function to load and vectorize the dataset with different vectorizers
+# def load_and_vectorize(vectorizer, remove=()):
+#     data_train = fetch_20newsgroups(
+#         subset="train",
+#         categories=categories_test,
+#         shuffle=True,
+#         random_state=42,
+#         remove=remove,
+#     )
+
+#     data_test = fetch_20newsgroups(
+#         subset="test",
+#         categories=categories_test,
+#         shuffle=True,
+#         random_state=42,
+#         remove=remove,
+#     )
+
+#     y_train, y_test = data_train.target, data_test.target
+
+#     t0 = time()
+#     X_train = vectorizer.fit_transform(data_train.data)
+#     duration_train = time() - t0
+
+#     t0 = time()
+#     X_test = vectorizer.transform(data_test.data)
+#     duration_test = time() - t0
+
+#     feature_names = vectorizer.get_feature_names_out()
+
+#     return X_train, X_test, y_train, y_test, feature_names
+
+# # Define vectorizers
+# count_vectorizer = CountVectorizer(stop_words="english")
+# tf_vectorizer = TfidfVectorizer(use_idf=False, norm='l2', stop_words="english")
+# tfidf_vectorizer = TfidfVectorizer(stop_words="english")
+
+# vectorizers = {
+#     "Count": count_vectorizer,
+#     "TF": tf_vectorizer,
+#     "TF-IDF": tfidf_vectorizer,
+# }
+# results = []
+# # Benchmark classifiers with different vectorizers
+# for vectorizer_name, vectorizer in vectorizers.items():
+#     print(f"\nUsing {vectorizer_name} features:\n" + "=" * 80)
+#     X_train, X_test, y_train, y_test, feature_names = load_and_vectorize(vectorizer)
+#     for clf, name in (
+#         # (RidgeClassifier(alpha=1.0, solver="sparse_cg"), "Ridge Classifier"),
+#         (RandomForestClassifier(), "Random Forest"),
+#         (NearestCentroid(), "NearestCentroid"),
+#         (ComplementNB(alpha=0.1), "Complement naive Bayes"),
+#     ):
+#         print("=" * 80)
+#         print(name)
+#         results.append(benchmark(clf, f"{name} ({vectorizer_name})"))
+
+# # Plot results
+# indices = np.arange(len(results))
+# results = [[x[i] for x in results] for i in range(4)]
+# clf_names, score, training_time, test_time = results
+# # stringifying the elements in score
+# score = [str(i) for i in score]
+# training_time = np.array(training_time)
+# test_time = np.array(test_time)
+
+# fig, ax1 = plt.subplots(figsize=(10, 8))
+# # Rotate x-axis labels for better readability
+# plt.xticks(rotation=45, ha="right")
+# # Set the tick locations
+# ax1.set_xticks(range(len(score)))
+# # # Shorten the x-axis tick labels to 3 decimal places
+# # ax1.set_xticklabels([f"{float(label):.2f}" for label in ax1.get_xticks()])
+# # Shorten the x-axis tick labels to 2 decimal places
+# ax1.set_xticklabels([f"{float(label):.2f}" for label in score])
+# # Sort the results by score for better visualization
+# sorted_indices = np.argsort(score)
+# score = np.array(score)[sorted_indices]
+# training_time = training_time[sorted_indices]
+# test_time = test_time[sorted_indices]
+# clf_names = np.array(clf_names)[sorted_indices]
+# # use three different colors for three classifiers
+# # Define a color map based on the classifier name
+# color_map = {
+#     "Random Forest": "orange",
+#     "NearestCentroid": "green",
+#     "Complement naive Bayes": "purple",
+# }
+
+# # Assign colors based on the classifier name, the name structure is "classifier_name (vectorizer_name)"
+# colors = [color_map[clf_name.split(" (")[0]] for clf_name in clf_names]
+
+# # Scatter plot with assigned colors
+# ax1.scatter(score, training_time, s=60, c=colors)
+# # 
+# plt.subplots_adjust(right=0.80)
+# # ax1.scatter(score, training_time, s=60)
+# ax1.set(
+#     title="Score-training time trade-off",
+#     yscale="log",
+#     xlabel="test accuracy",
+#     ylabel="training time (s)",
+# )
+# for i, txt in enumerate(clf_names):
+#     ax1.annotate(txt, (score[i], training_time[i]))
+# plt.savefig("score_training_trade_off_features.png")
+# fig, ax2 = plt.subplots(figsize=(10, 8))
+# ax2.scatter(score, test_time, s=60)
+# ax2.set(
+#     title="Score-test time trade-off",
+#     yscale="log",
+#     xlabel="test accuracy",
+#     ylabel="test time (s)",
+# )
+
+# for i, txt in enumerate(clf_names):
+#     ax1.annotate(txt, (score[i], training_time[i]))
+#     ax2.annotate(txt, (score[i], test_time[i]))
+# plt.savefig("score_testing_trade_off_features.png")
+
+# Define a function to load and vectorize the dataset with different vectorizers
 def load_and_vectorize(vectorizer, remove=()):
     data_train = fetch_20newsgroups(
         subset="train",
@@ -521,13 +666,13 @@ vectorizers = {
     "TF": tf_vectorizer,
     "TF-IDF": tfidf_vectorizer,
 }
+
 results = []
 # Benchmark classifiers with different vectorizers
 for vectorizer_name, vectorizer in vectorizers.items():
     print(f"\nUsing {vectorizer_name} features:\n" + "=" * 80)
     X_train, X_test, y_train, y_test, feature_names = load_and_vectorize(vectorizer)
     for clf, name in (
-        # (RidgeClassifier(alpha=1.0, solver="sparse_cg"), "Ridge Classifier"),
         (RandomForestClassifier(), "Random Forest"),
         (NearestCentroid(), "NearestCentroid"),
         (ComplementNB(alpha=0.1), "Complement naive Bayes"),
@@ -540,27 +685,23 @@ for vectorizer_name, vectorizer in vectorizers.items():
 indices = np.arange(len(results))
 results = [[x[i] for x in results] for i in range(4)]
 clf_names, score, training_time, test_time = results
-# stringifying the elements in score
-score = [str(i) for i in score]
 training_time = np.array(training_time)
 test_time = np.array(test_time)
 
-fig, ax1 = plt.subplots(figsize=(10, 8))
+fig, ax1 = plt.subplots(figsize=(12, 8))
 # Rotate x-axis labels for better readability
 plt.xticks(rotation=45, ha="right")
 # Set the tick locations
 ax1.set_xticks(range(len(score)))
-# # Shorten the x-axis tick labels to 3 decimal places
-# ax1.set_xticklabels([f"{float(label):.2f}" for label in ax1.get_xticks()])
 # Shorten the x-axis tick labels to 2 decimal places
-ax1.set_xticklabels([f"{float(label):.2f}" for label in score])
+ax1.set_xticklabels([f"{s:.2f}" for s in score])
 # Sort the results by score for better visualization
 sorted_indices = np.argsort(score)
 score = np.array(score)[sorted_indices]
 training_time = training_time[sorted_indices]
 test_time = test_time[sorted_indices]
 clf_names = np.array(clf_names)[sorted_indices]
-# use three different colors for three classifiers
+
 # Define a color map based on the classifier name
 color_map = {
     "Random Forest": "orange",
@@ -568,25 +709,50 @@ color_map = {
     "Complement naive Bayes": "purple",
 }
 
+# Define a line style map based on the vectorizer name
+line_style_map = {
+    "Count": "solid",
+    "TF": (0, (5, 1)),  # dash pattern
+    "TF-IDF": (0, (1, 1)),  # dot pattern
+}
+
 # Assign colors based on the classifier name, the name structure is "classifier_name (vectorizer_name)"
 colors = [color_map[clf_name.split(" (")[0]] for clf_name in clf_names]
+# Assign line styles based on the vectorizer name
+line_styles = [line_style_map[clf_name.split(" (")[1][:-1]] for clf_name in clf_names]
 
 # Scatter plot with assigned colors
-ax1.scatter(score, training_time, s=60, c=colors)
-# 
+for vectorizer_name, line_style in line_style_map.items():
+    indices = [i for i, clf_name in enumerate(clf_names) if vectorizer_name in clf_name]
+    for i in indices:
+        color = 'red' if vectorizer_name == "TF-IDF" else 'black'
+        ax1.plot([score[i], score[i]], [training_time[i] * 0.90, training_time[i] * 1.10], linestyle=line_style, color=color, linewidth=1.5)
+    ax1.scatter(score[indices], training_time[indices], s=60, c=[colors[i] for i in indices])
+
 plt.subplots_adjust(right=0.80)
-# ax1.scatter(score, training_time, s=60)
 ax1.set(
     title="Score-training time trade-off",
     yscale="log",
     xlabel="test accuracy",
     ylabel="training time (s)",
 )
-for i, txt in enumerate(clf_names):
-    ax1.annotate(txt, (score[i], training_time[i]))
+
+# Create custom legend
+handles = [plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=color, markersize=10, label=clf_name) for clf_name, color in color_map.items()]
+handles += [plt.Line2D([0], [0], color='black' if vectorizer_name != "TF-IDF" else 'red', linestyle=line_style, linewidth=1.5, label=f"{vectorizer_name} Vectorizer") for vectorizer_name, line_style in line_style_map.items()]
+ax1.legend(handles=handles, loc='best')
+
 plt.savefig("score_training_trade_off_features.png")
-fig, ax2 = plt.subplots(figsize=(10, 8))
-ax2.scatter(score, test_time, s=60)
+
+fig, ax2 = plt.subplots(figsize=(12, 8))
+# Scatter plot with assigned colors
+for vectorizer_name, line_style in line_style_map.items():
+    indices = [i for i, clf_name in enumerate(clf_names) if vectorizer_name in clf_name]
+    for i in indices:
+        color = 'red' if vectorizer_name == "TF-IDF" else 'black'
+        ax2.plot([score[i], score[i]], [test_time[i] * 0.90, test_time[i] * 1.10], linestyle=line_style, color=color, linewidth=1.5)
+    ax2.scatter(score[indices], test_time[indices], s=60, c=[colors[i] for i in indices])
+
 ax2.set(
     title="Score-test time trade-off",
     yscale="log",
@@ -594,7 +760,82 @@ ax2.set(
     ylabel="test time (s)",
 )
 
-for i, txt in enumerate(clf_names):
-    ax1.annotate(txt, (score[i], training_time[i]))
-    ax2.annotate(txt, (score[i], test_time[i]))
+# Create custom legend
+handles = [plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=color, markersize=10, label=clf_name) for clf_name, color in color_map.items()]
+handles += [plt.Line2D([0], [0], color='black' if vectorizer_name != "TF-IDF" else 'red', linestyle=line_style, linewidth=1.5, label=f"{vectorizer_name} Vectorizer") for vectorizer_name, line_style in line_style_map.items()]
+ax2.legend(handles=handles, loc='best')
+
 plt.savefig("score_testing_trade_off_features.png")
+
+# print the results in the terminal as a table
+print("Results:")
+print("========")
+print("Classifier (Vectorizer) | Score | Training Time | Test Time")
+print("=" * 80)
+for i in range(len(clf_names)):
+    print(f"{clf_names[i]:<25} | {score[i]:<5} | {training_time[i]:<13.3f} | {test_time[i]:<9.3f}")
+print("=" * 80)
+
+# Calculate Precision, Recall, and F1 for each classifier and vectorizer combination
+
+# Initialize lists to store the results
+precision_results = []
+recall_results = []
+f1_results = []
+
+# Benchmark classifiers with different vectorizers and calculate metrics
+for vectorizer_name, vectorizer in vectorizers.items():
+    print(f"\nUsing {vectorizer_name} features:\n" + "=" * 80)
+    X_train, X_test, y_train, y_test, feature_names = load_and_vectorize(vectorizer)
+    for clf, name in (
+        (RandomForestClassifier(), "Random Forest"),
+        (NearestCentroid(), "NearestCentroid"),
+        (ComplementNB(alpha=0.1), "Complement naive Bayes"),
+    ):
+        print("=" * 80)
+        print(name)
+        clf_descr, score, train_time, test_time = benchmark(clf, f"{name} ({vectorizer_name})")
+        pred = clf.predict(X_test)
+        precision = precision_score(y_test, pred, average='weighted')
+        recall = recall_score(y_test, pred, average='weighted')
+        f1 = f1_score(y_test, pred, average='weighted')
+        precision_results.append(precision)
+        recall_results.append(recall)
+        f1_results.append(f1)
+
+# Print the results in the terminal as a table
+print("\nDetailed Results:")
+print("=" * 80)
+print("Classifier (Vectorizer) | Precision | Recall | F1 Score")
+print("=" * 80)
+for i in range(len(clf_names)):
+    print(f"{clf_names[i]:<25} | {precision_results[i]:<9.3f} | {recall_results[i]:<6.3f} | {f1_results[i]:<8.3f}")
+print("=" * 80)
+
+# Plot Precision, Recall, and F1 Score
+fig, ax = plt.subplots(figsize=(12, 8))
+width = 0.2  # the width of the bars
+x = np.arange(len(clf_names))  # the label locations
+
+rects1 = ax.bar(x - width, precision_results, width, label='Precision')
+rects2 = ax.bar(x, recall_results, width, label='Recall')
+rects3 = ax.bar(x + width, f1_results, width, label='F1 Score')
+
+# Add some text for labels, title and custom x-axis tick labels, etc.
+ax.set_xlabel('Classifier (Vectorizer)')
+ax.set_ylabel('Scores')
+ax.set_title('Precision, Recall, and F1 Score by Classifier and Vectorizer')
+ax.set_xticks(x)
+ax.set_xticklabels(clf_names, rotation=45, ha="right")
+ax.legend()
+
+fig.tight_layout()
+plt.savefig("precision_recall_f1_scores.png")
+# print the results in the terminal as a table
+print("Results:")
+print("========")
+print("Classifier (Vectorizer) | Precision | Recall | F1 Score")
+print("=" * 80)
+for i in range(len(clf_names)):
+    print(f"{clf_names[i]:<25} | {precision_results[i]:<9.3f} | {recall_results[i]:<6.3f} | {f1_results[i]:<8.3f}")
+print("=" * 80)
